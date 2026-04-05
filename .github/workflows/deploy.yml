@@ -25,13 +25,23 @@ jobs:
       - name: Préparer la clé SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/devops-key.pem
+          printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/devops-key.pem
           chmod 600 ~/.ssh/devops-key.pem
-
-      - name: Copier deployment.yaml sur le master
-        run: |
-          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/devops-key.pem k8s/deployment.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/
 
       - name: Déployer sur Kubernetes
         run: |
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/devops-key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "sudo k3s kubectl apply -f /home/ec2-user/deployment.yaml && sudo k3s kubectl rollout restart deployment flask-app && sudo k3s kubectl get pods"
+          ssh -vvv \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/devops-key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "cat > /home/ec2-user/deployment.yaml" < k8s/deployment.yaml
+
+          ssh -vvv \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 \
+            -i ~/.ssh/devops-key.pem \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "sudo k3s kubectl apply -f /home/ec2-user/deployment.yaml && sudo k3s kubectl rollout restart deployment flask-app && sudo k3s kubectl get pods"
